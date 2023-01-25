@@ -18,14 +18,11 @@ Packet::Packet(std::string port)
 	this->PositionMode = "0002";
 	this->MotorLessMode = "0003";
 	this->ForcedMode = "0004";
-
 	this->Speed = "0AFF";
 	this->Acc = "7FFFFFFF";
-
 	this->Forward = "00000807";
 	this->Backward = "00001007";
 	this->Stop = "00000007";
-
 	print = false;
 }
 
@@ -92,7 +89,7 @@ void Packet::SendParameterPacket(std::string para)
 	SendGeneralPacket("05", para);
 }
 
-//For J2
+//For J2 Motor
 void Packet::SendGeneralPacket(std::string com, std::string dataNo)
 {
 	ClearPacketStream();
@@ -123,7 +120,7 @@ void Packet::SendGeneralPacket(std::string com, std::string dataNo, std::string 
 		std::cout<<"This is the packet string: "<<PacketString << std::endl;
 	}
 }
-//For J2S
+//For J2S Motor
 void Packet::SendGeneralPacket2(std::string com, std::string dataNo)
 {
 	ClearPacketStream();
