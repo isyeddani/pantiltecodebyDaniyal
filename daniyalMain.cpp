@@ -15,7 +15,7 @@ int main()
     int usleep_time = 80000;
     elevationObject.StartupSequenceJ2S(usleep_time);
     elevationObject.SpeedAccelSetupJ2S(usleep_time,speed,acceleration);
-    elevationObject.DegreeRotationJ2S(-45,usleep_time,speed,131072);
+    elevationObject.DegreeRotationJ2S(-20,usleep_time,speed,1310720);
     usleep(usleep_time);
     elevationObject.StopMotionJ2S();
     elevationObject.serialPort.Close();

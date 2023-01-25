@@ -35,31 +35,17 @@ class Packet{
 		bool print;
 		SerialPort serialPort;
 		Packet(std::string port);
-		void SendDisableExInputsPacket(void);
-		void SendSpeedPacket(std::string speed);
-		void SendModeSelect(std::string mode);
-		void SendServoOnPacket(void);
-		void SendStrokeOnPacket(void);
-		void SendAccelerationPacket(std::string acc);
-		void SendDirectionPacket(std::string dir);
-		void SendMoveDistancePacket(std::string pulses);
-		void SendParameterPacket(std::string para);
-		void SendGeneralPacket(std::string Com, std::string dataNo);
-		void SendGeneralPacket(std::string Com, std::string dataNo, std::string data);
+
 		void SendGeneralPacket2(std::string Com, std::string dataNo);
 		void SendGeneralPacket2(std::string Com, std::string dataNo, std::string data);
 		void SendAllStatusReadPacket(void);
 		void ClearPacketStream(void);
-		void StartupSequenceJ2 (int usleep_time);
 		void StartupSequenceJ2S (int usleep_time);
-		void HeartbeatJ2(int usleep_time, int loop_time);
 		void HeartbeatJ2S(int usleep_time, int loop_time);
-		void SpeedAccelSetupJ2(int usleep_time,int speed,int acceleration);
 		void SpeedAccelSetupJ2S(int usleep_time,int speed,int acceleration);
-		void DegreeRotationJ2(double degree, int usleep_time,int sleep);
 		void DegreeRotationJ2S(double degree, int usleep_time, int sleep, double total_pulses);
-		void StopMotionJ2(void);
 		void StopMotionJ2S(void);
+		
 		// void StartupSequenceAzimuth (int usleep_time);
 		// void StartupSequenceElevation (int usleep_time);
 		// void HeartbeatAzimuth(int usleep_time, int loop_time);
@@ -76,4 +62,23 @@ class Packet{
 		std::string Stringpad(std::string string_to_pad, int length, char character_pad);
 		std::string Convert(long int num, int bit_length);
 
+
+		// Change By Daniyal
+		// void SendDisableExInputsPacket(void);
+		// void SendSpeedPacket(std::string speed);
+		// void SendModeSelect(std::string mode);
+		// void SendServoOnPacket(void);
+		// void SendStrokeOnPacket(void);
+		// void SendAccelerationPacket(std::string acc);
+		// void SendDirectionPacket(std::string dir);
+		// void SendMoveDistancePacket(std::string pulses);
+		// void SendParameterPacket(std::string para);
+		// void SendGeneralPacket(std::string Com, std::string dataNo);
+		// void SendGeneralPacket(std::string Com, std::string dataNo, std::string data);
+		// void StopMotionJ2(void);
+
+		// void DegreeRotationJ2(double degree, int usleep_time,int sleep);
+		// void HeartbeatJ2(int usleep_time, int loop_time);
+		// void StartupSequenceJ2 (int usleep_time);	
+		// void SpeedAccelSetupJ2(int usleep_time,int speed,int acceleration);
 };

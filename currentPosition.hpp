@@ -25,4 +25,3 @@ class pulseCount{
         void get_elevationRevCounts(int set_elevationRevCounts);
         void get_RevCounts(int set_RevCounts);
 }
-
