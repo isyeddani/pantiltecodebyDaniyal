@@ -5,8 +5,7 @@ Packet::Packet(std::string port)
 {
 	serialPort = SerialPort(port, BaudRate::B_9600, NumDataBits::EIGHT, Parity::EVEN, NumStopBits::ONE);
 	serialPort.SetTimeout(1000);
-	// serialPort.Open();
-
+	serialPort.Open();
 	this->SOH = 0x01;
 	this->STX = 0x02;
 	this->ETX = 0x03;
@@ -23,35 +22,62 @@ Packet::Packet(std::string port)
 	this->Backward = "00001007";
 	this->Stop = "00000007";
 	print = false;
+	this->ReceivedPacket = "";
 }
 
 // For J2S Motor
-
 ////////////////// NEW StartupSequenceJ2S Daniyal 20-Jan//////////////////////
 void Packet::StartupSequenceJ2S(int usleep_time)
 {
-	SendGeneralPacket2("90", "00", "1EA5"); // DisableExInputsPacket
-	SendGeneralPacket2("8B", "00", "0002"); // Position Operation Enable
+	SendGeneralPacket2("90", "00", "1EA5", Axis); // DisableExInputsPacket
+	serialPort.Read(ReceivedPacket);
+	ReadDisplay(ReceivedPacket, "Acceleration");
+	ReceivedDataProcessing(ReceivedPacket);
+	usleep(usleep_time);
+
+	SendGeneralPacket2("8B", "00", "0002", Axis); // Position Operation Enable
+	serialPort.Read(ReceivedPacket);
+	ReadDisplay(ReceivedPacket, "Position Operation Enable");
+	ReceivedDataProcessing(ReceivedPacket);
+	usleep(usleep_time);
+
+	SendGeneralPacket2("01", "80", Axis);
+	usleep(usleep_time);
+	serialPort.Read(ReceivedPacket);
+	ReadDisplay(ReceivedPacket, "Cummulative Feedback Pulses: ");
+	usleep(usleep_time);
+
+	SendGeneralPacket2("01", "81", Axis);
+	usleep(usleep_time);
+	serialPort.Read(ReceivedPacket);
+	ReadDisplay(ReceivedPacket, "Servo Motor Speed:");
+	usleep(usleep_time);
+
+	SendGeneralPacket2("01", "82", Axis);
+	usleep(usleep_time);
+	serialPort.Read(ReceivedPacket);
+	ReadDisplay(ReceivedPacket, "Droop Pulses:");
+	usleep(usleep_time);
 }
 
 void Packet::SpeedAccelSetupJ2S(int usleep_time, int speed, int acceleration)
 {
-	SendGeneralPacket2("A0", "10", Convert(speed, 4)); // Set Speed in RPM
+	SendGeneralPacket2("A0", "10", Convert(speed, 4), Axis); // Set Speed in RPM
 	usleep(usleep_time);
-	SendGeneralPacket2("A0", "11", Convert(acceleration, 8)); // acceleration time constant ms
+	SendGeneralPacket2("A0", "11", Convert(acceleration, 8), Axis); // acceleration time constant ms
 	usleep(usleep_time);
-	SendGeneralPacket2("92", "00", "00000007"); // servo ON 
+	SendGeneralPacket2("92", "00", "00000007", Axis); // servo ON
 	usleep(usleep_time);
 }
 
-void Packet::SendGeneralPacket2(std::string com, std::string dataNo)
+void Packet::SendGeneralPacket2(std::string com, std::string dataNo, char stNo)
 {
 	ClearPacketStream();
-	PacketStream << SOH << Axis << com << STX << dataNo << ETX;
+	PacketStream << SOH << stNo << com << STX << dataNo << ETX;
 	std::string checksum = CalCheckSum();
 	PacketStream << checksum[1] << checksum[0];
 	PacketString = PacketStream.str();
-	std::cout << PacketString << std::endl;
+	// std::cout << PacketString << std::endl;
 	serialPort.Write(PacketString);
 	// serialPort.Read(ReceivedPacket);
 	if (print)
@@ -60,14 +86,16 @@ void Packet::SendGeneralPacket2(std::string com, std::string dataNo)
 	}
 }
 
-void Packet::SendGeneralPacket2(std::string com, std::string dataNo, std::string data)
+void Packet::SendGeneralPacket2(std::string com, std::string dataNo, std::string data, char stNo)
 {
 	ClearPacketStream();
-	PacketStream << SOH << Axis << com << STX << dataNo << data << ETX;
+	PacketStream << SOH << stNo << com << STX << dataNo << data << ETX;
+	// std::cout << "Data Without CheckSum:";
+	// std::cout << std::hex << PacketStream.str() << std::endl;
 	std::string checksum = CalCheckSum();
 	PacketStream << checksum[1] << checksum[0];
 	PacketString = PacketStream.str();
-	std::cout << PacketString << std::endl;
+	// std::cout << PacketString << std::endl;
 	serialPort.Write(PacketString);
 	// serialPort.Read(ReceivedPacket);
 	if (print)
@@ -81,7 +109,7 @@ void Packet::SendAllStatusReadPacket(void)
 	std::string str = "80";
 	for (int i = 0; i <= 12; i++)
 	{
-		SendGeneralPacket2("01", str);
+		SendGeneralPacket2("01", str, Axis);
 		// std::cout << str << std::endl;
 		if (str[1] == '9')
 		{
@@ -215,17 +243,21 @@ std::string Packet::Convert(long int num, int bit_length)
 
 void Packet::StopMotionJ2S(void)
 {
-	SendGeneralPacket2("90", "00", "1EA5");
+	SendGeneralPacket2("90", "00", "1EA5", 0x30);
+	
+	SendGeneralPacket2("01", "83", Axis);
+	serialPort.Read(ReceivedPacket);
+	ReadDisplay(ReceivedPacket, "Cummulative Command Pulses After Motion:");
 }
 
 void Packet::HeartbeatJ2S(int usleep_time, int loop_time)
 {
 	for (int i = 0; i < loop_time; i++)
 	{
-		SendGeneralPacket2("00", "12");
+		SendGeneralPacket2("00", "12", 0x30);
 		usleep(usleep_time);
 	}
-	SendGeneralPacket2("90", "00", "1EA5");
+	SendGeneralPacket2("90", "00", "1EA5", 0x30);
 }
 
 void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double total_pulses)
@@ -261,10 +293,10 @@ void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double
 
 			degree = (-45 * total_pulses) / 6;
 
-			SendGeneralPacket2("A0", "13", Convert(degree, 8));
+			SendGeneralPacket2("A0", "13", Convert(degree, 8), Axis);
 			HeartbeatJ2S(usleep_time, loop_count);
 
-			SendGeneralPacket2("A0", "13", Convert(second_data, 8));
+			SendGeneralPacket2("A0", "13", Convert(second_data, 8), Axis);
 			HeartbeatJ2S(usleep_time, loop_count2);
 		}
 
@@ -284,10 +316,10 @@ void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double
 
 			degree = (45 * total_pulses) / 6;
 
-			SendGeneralPacket2("A0", "13", Convert(degree, 8));
+			SendGeneralPacket2("A0", "13", Convert(degree, 8), Axis);
 			HeartbeatJ2S(usleep_time, loop_count);
 
-			SendGeneralPacket2("A0", "13", Convert(second_data, 8));
+			SendGeneralPacket2("A0", "13", Convert(second_data, 8), Axis);
 			HeartbeatJ2S(usleep_time, loop_count2);
 		}
 
@@ -299,7 +331,7 @@ void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double
 
 			degree = (degree * total_pulses) / 6;
 			// std::cout<<"Current degree pulse: "<<degree<<std::endl;
-			SendGeneralPacket2("A0", "13", Convert(degree, 8)); // Forward Moving Distance
+			SendGeneralPacket2("A0", "13", Convert(degree, 8), Axis); // Forward Moving Distance
 
 			HeartbeatJ2S(usleep_time, loop_count);
 		}
@@ -312,7 +344,7 @@ void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double
 
 			degree = (degree * total_pulses) / 6;
 			// std::cout<<"Current degree pulse: "<<degree<<std::endl;
-			SendGeneralPacket2("A0", "13", Convert(degree, 8)); // Forward Moving Distance
+			SendGeneralPacket2("A0", "13", Convert(degree, 8), Axis); // Forward Moving Distance
 
 			HeartbeatJ2S(usleep_time, loop_count);
 		}
@@ -331,7 +363,7 @@ void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double
 
 		degree = (degree * total_pulses) / 6;
 		// std::cout<<"Current degree pulse: "<<degree<<std::endl;
-		SendGeneralPacket2("A0", "13", Convert(degree, 8)); // Forward Moving Distance
+		SendGeneralPacket2("A0", "13", Convert(degree, 8), Axis); // Forward Moving Distance
 
 		HeartbeatJ2S(usleep_time, loop_count);
 
@@ -346,7 +378,7 @@ void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double
 
 		degree = (degree * total_pulses) / 6;
 		// std::cout<<"Current degree pulse: "<<degree<<std::endl;
-		SendGeneralPacket2("A0", "13", Convert(degree, 8)); // Forward Moving Distance
+		SendGeneralPacket2("A0", "13", Convert(degree, 8), Axis); // Forward Moving Distance
 
 		HeartbeatJ2S(usleep_time, loop_count);
 		// SendAllStatusReadPacket();
@@ -368,6 +400,28 @@ void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double
 	// usleep(usleep_time);
 
 	// std::cout<<Convert(degree,8)<<std::endl;
+}
+
+void Packet::ReadDisplay(std::string receivedPacket, std::string comment)
+{
+	std::cout << comment << "Acknowledge: ";
+	std::cout << receivedPacket << std::endl;
+}
+
+void Packet::ReceivedDataProcessing(std::string receivedPacket)
+{
+	if (receivedPacket.length() == 6)
+	{
+		if (receivedPacket[2] != 0x41)
+		{
+			std::cout << errorCode[receivedPacket[2] - 0x41];
+			return;
+		}
+		if (receivedPacket[4] != 0x037 && receivedPacket[5] != 0x034)
+		{
+			std::cout << "Correct Check Sum Not Received" << std::endl;
+		}
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////
