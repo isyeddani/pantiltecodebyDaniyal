@@ -29,6 +29,7 @@ Packet::Packet(std::string port)
 ////////////////// NEW StartupSequenceJ2S Daniyal 20-Jan//////////////////////
 void Packet::StartupSequenceJ2S(int usleep_time)
 {
+	// serialPort.SetReadBufferClear();
 	SendGeneralPacket2("90", "00", "1EA5", Axis); // DisableExInputsPacket
 	serialPort.Read(ReceivedPacket);
 	ReadDisplay(ReceivedPacket, "Acceleration");
@@ -41,22 +42,10 @@ void Packet::StartupSequenceJ2S(int usleep_time)
 	ReceivedDataProcessing(ReceivedPacket);
 	usleep(usleep_time);
 
-	SendGeneralPacket2("01", "80", Axis);
+	SendGeneralPacket2("01", "8B", Axis);
 	usleep(usleep_time);
 	serialPort.Read(ReceivedPacket);
-	ReadDisplay(ReceivedPacket, "Cummulative Feedback Pulses: ");
-	usleep(usleep_time);
-
-	SendGeneralPacket2("01", "81", Axis);
-	usleep(usleep_time);
-	serialPort.Read(ReceivedPacket);
-	ReadDisplay(ReceivedPacket, "Servo Motor Speed:");
-	usleep(usleep_time);
-
-	SendGeneralPacket2("01", "82", Axis);
-	usleep(usleep_time);
-	serialPort.Read(ReceivedPacket);
-	ReadDisplay(ReceivedPacket, "Droop Pulses:");
+	ReadDisplay(ReceivedPacket, "Cummulative Feedback Pulses:");
 	usleep(usleep_time);
 }
 
@@ -77,7 +66,7 @@ void Packet::SendGeneralPacket2(std::string com, std::string dataNo, char stNo)
 	std::string checksum = CalCheckSum();
 	PacketStream << checksum[1] << checksum[0];
 	PacketString = PacketStream.str();
-	// std::cout << PacketString << std::endl;
+	std::cout << PacketString << std::endl;
 	serialPort.Write(PacketString);
 	// serialPort.Read(ReceivedPacket);
 	if (print)
@@ -95,7 +84,7 @@ void Packet::SendGeneralPacket2(std::string com, std::string dataNo, std::string
 	std::string checksum = CalCheckSum();
 	PacketStream << checksum[1] << checksum[0];
 	PacketString = PacketStream.str();
-	// std::cout << PacketString << std::endl;
+	std::cout << PacketString << std::endl;
 	serialPort.Write(PacketString);
 	// serialPort.Read(ReceivedPacket);
 	if (print)
@@ -244,10 +233,6 @@ std::string Packet::Convert(long int num, int bit_length)
 void Packet::StopMotionJ2S(void)
 {
 	SendGeneralPacket2("90", "00", "1EA5", 0x30);
-	
-	SendGeneralPacket2("01", "83", Axis);
-	serialPort.Read(ReceivedPacket);
-	ReadDisplay(ReceivedPacket, "Cummulative Command Pulses After Motion:");
 }
 
 void Packet::HeartbeatJ2S(int usleep_time, int loop_time)
@@ -400,11 +385,33 @@ void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double
 	// usleep(usleep_time);
 
 	// std::cout<<Convert(degree,8)<<std::endl;
+		// serialPort.Read(ReceivedPacket);
+		// // serialPort.Read(ReceivedPacket);
+		// // serialPort.Read(ReceivedPacket);
+		// // serialPort.Read(ReceivedPacket);
+		// // serialPort.Read(ReceivedPacket);
+		// // serialPort.Read(ReceivedPacket);
+	// SendGeneralPacket2("01", "83", Axis);
+	// usleep(80000);
+	// serialPort.Read(ReceivedPacket);
+	// ReadDisplay(ReceivedPacket, "Cummulative Feedback Pulses after Motion: ");
+
+	// // SendGeneralPacket2("81", "00", "1EA5", Axis);
+	// // usleep(80000);
+	// // serialPort.Read(ReceivedPacket);
+	// // ReadDisplay(ReceivedPacket, "Setting Display Clear:");
+	// // usleep(80000);
+
+	// SendGeneralPacket2("01", "83", Axis);
+	// usleep(80000);
+	// serialPort.Read(ReceivedPacket);
+	// ReadDisplay(ReceivedPacket, "Cummulative Feedback Pulses after Set Clear: ");
+	// usleep(80000);
 }
 
 void Packet::ReadDisplay(std::string receivedPacket, std::string comment)
 {
-	std::cout << comment << "Acknowledge: ";
+	std::cout << comment;
 	std::cout << receivedPacket << std::endl;
 }
 
