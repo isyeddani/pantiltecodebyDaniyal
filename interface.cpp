@@ -30,7 +30,6 @@ Packet::Packet(std::string port)
 ////////////////// NEW StartupSequenceJ2S Daniyal 20-Jan//////////////////////
 void Packet::StartupSequenceJ2S(int usleep_time)
 {
-<<<<<<< HEAD
 	// serialPort.SetReadBufferClear();
 	SendGeneralPacket2("90", "00", "1EA5", Axis); // DisableExInputsPacket
 	// serialPort.Read(ReceivedPacket);
@@ -49,10 +48,6 @@ void Packet::StartupSequenceJ2S(int usleep_time)
 	// serialPort.Read(ReceivedPacket);
 	// ReadDisplay(ReceivedPacket, "Cummulative Feedback Pulses:");
 	usleep(usleep_time);
-=======
-	SendGeneralPacket2("90", "00", "1EA5"); // DisableExInputsPacket
-	SendGeneralPacket2("8B", "00", "0002"); // Position Operation Enable
->>>>>>> parent of d1d4bf2 (Acknowledge Reveice and Process, Pulse Read Commands)
 }
 
 void Packet::SpeedAccelSetupJ2S(int usleep_time, int speed, int acceleration)

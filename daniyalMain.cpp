@@ -11,7 +11,6 @@ int i = 0;
 
 int main()
 {
-<<<<<<< HEAD
     Packet elevationObject("/dev/ttyUSB1");
     elevationObject.print = false;
     Packet azimuthObject("/dev/ttyUSB2");
@@ -53,19 +52,5 @@ int main()
         azimuthObject.serialPort.Close();
         i = i + 1;
     }
-=======
-    Packet elevationObject("/dev/ttyUSB2");
-    elevationObject.serialPort.Open();
-    elevationObject.print=false;
-    int speed =1000;
-    int acceleration = 1000;
-    int usleep_time = 80000;
-    elevationObject.StartupSequenceJ2S(usleep_time);
-    elevationObject.SpeedAccelSetupJ2S(usleep_time,speed,acceleration);
-    elevationObject.DegreeRotationJ2S(-20,usleep_time,speed,1310720);
-    usleep(usleep_time);
-    elevationObject.StopMotionJ2S();
-    elevationObject.serialPort.Close();
->>>>>>> parent of d1d4bf2 (Acknowledge Reveice and Process, Pulse Read Commands)
     return 0;
 }
