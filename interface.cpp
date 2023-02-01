@@ -5,7 +5,8 @@ Packet::Packet(std::string port)
 {
 	serialPort = SerialPort(port, BaudRate::B_9600, NumDataBits::EIGHT, Parity::EVEN, NumStopBits::ONE);
 	serialPort.SetTimeout(1000);
-	serialPort.Open();
+	// serialPort.Open();
+
 	this->SOH = 0x01;
 	this->STX = 0x02;
 	this->ETX = 0x03;
@@ -22,13 +23,14 @@ Packet::Packet(std::string port)
 	this->Backward = "00001007";
 	this->Stop = "00000007";
 	print = false;
-	this->ReceivedPacket = "";
 }
 
 // For J2S Motor
+
 ////////////////// NEW StartupSequenceJ2S Daniyal 20-Jan//////////////////////
 void Packet::StartupSequenceJ2S(int usleep_time)
 {
+<<<<<<< HEAD
 	// serialPort.SetReadBufferClear();
 	SendGeneralPacket2("90", "00", "1EA5", Axis); // DisableExInputsPacket
 	// serialPort.Read(ReceivedPacket);
@@ -47,26 +49,30 @@ void Packet::StartupSequenceJ2S(int usleep_time)
 	// serialPort.Read(ReceivedPacket);
 	// ReadDisplay(ReceivedPacket, "Cummulative Feedback Pulses:");
 	usleep(usleep_time);
+=======
+	SendGeneralPacket2("90", "00", "1EA5"); // DisableExInputsPacket
+	SendGeneralPacket2("8B", "00", "0002"); // Position Operation Enable
+>>>>>>> parent of d1d4bf2 (Acknowledge Reveice and Process, Pulse Read Commands)
 }
 
 void Packet::SpeedAccelSetupJ2S(int usleep_time, int speed, int acceleration)
 {
-	SendGeneralPacket2("A0", "10", Convert(speed, 4), Axis); // Set Speed in RPM
+	SendGeneralPacket2("A0", "10", Convert(speed, 4)); // Set Speed in RPM
 	usleep(usleep_time);
-	SendGeneralPacket2("A0", "11", Convert(acceleration, 8), Axis); // acceleration time constant ms
+	SendGeneralPacket2("A0", "11", Convert(acceleration, 8)); // acceleration time constant ms
 	usleep(usleep_time);
-	SendGeneralPacket2("92", "00", "00000007", Axis); // servo ON
+	SendGeneralPacket2("92", "00", "00000007"); // servo ON 
 	usleep(usleep_time);
 }
 
-void Packet::SendGeneralPacket2(std::string com, std::string dataNo, char stNo)
+void Packet::SendGeneralPacket2(std::string com, std::string dataNo)
 {
 	ClearPacketStream();
-	PacketStream << SOH << stNo << com << STX << dataNo << ETX;
+	PacketStream << SOH << Axis << com << STX << dataNo << ETX;
 	std::string checksum = CalCheckSum();
 	PacketStream << checksum[1] << checksum[0];
 	PacketString = PacketStream.str();
-	// std::cout << PacketString << std::endl;
+	std::cout << PacketString << std::endl;
 	serialPort.Write(PacketString);
 	// serialPort.Read(ReceivedPacket);
 	if (print)
@@ -75,16 +81,14 @@ void Packet::SendGeneralPacket2(std::string com, std::string dataNo, char stNo)
 	}
 }
 
-void Packet::SendGeneralPacket2(std::string com, std::string dataNo, std::string data, char stNo)
+void Packet::SendGeneralPacket2(std::string com, std::string dataNo, std::string data)
 {
 	ClearPacketStream();
-	PacketStream << SOH << stNo << com << STX << dataNo << data << ETX;
-	// std::cout << "Data Without CheckSum:";
-	// std::cout << std::hex << PacketStream.str() << std::endl;
+	PacketStream << SOH << Axis << com << STX << dataNo << data << ETX;
 	std::string checksum = CalCheckSum();
 	PacketStream << checksum[1] << checksum[0];
 	PacketString = PacketStream.str();
-	// std::cout << PacketString << std::endl;
+	std::cout << PacketString << std::endl;
 	serialPort.Write(PacketString);
 	// serialPort.Read(ReceivedPacket);
 	if (print)
@@ -98,7 +102,7 @@ void Packet::SendAllStatusReadPacket(void)
 	std::string str = "80";
 	for (int i = 0; i <= 12; i++)
 	{
-		SendGeneralPacket2("01", str, Axis);
+		SendGeneralPacket2("01", str);
 		// std::cout << str << std::endl;
 		if (str[1] == '9')
 		{
@@ -232,17 +236,21 @@ std::string Packet::Convert(long int num, int bit_length)
 
 void Packet::StopMotionJ2S(void)
 {
+<<<<<<< HEAD
 	SendGeneralPacket2("90", "00", "1EA5", 0x30);
+=======
+	SendGeneralPacket2("90", "00", "1EA5");
+>>>>>>> parent of d1d4bf2 (Acknowledge Reveice and Process, Pulse Read Commands)
 }
 
 void Packet::HeartbeatJ2S(int usleep_time, int loop_time)
 {
 	for (int i = 0; i < loop_time; i++)
 	{
-		SendGeneralPacket2("00", "12", 0x30);
+		SendGeneralPacket2("00", "12");
 		usleep(usleep_time);
 	}
-	SendGeneralPacket2("90", "00", "1EA5", 0x30);
+	SendGeneralPacket2("90", "00", "1EA5");
 }
 
 void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double total_pulses)
@@ -278,10 +286,10 @@ void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double
 
 			degree = (-45 * total_pulses) / 6;
 
-			SendGeneralPacket2("A0", "13", Convert(degree, 8), Axis);
+			SendGeneralPacket2("A0", "13", Convert(degree, 8));
 			HeartbeatJ2S(usleep_time, loop_count);
 
-			SendGeneralPacket2("A0", "13", Convert(second_data, 8), Axis);
+			SendGeneralPacket2("A0", "13", Convert(second_data, 8));
 			HeartbeatJ2S(usleep_time, loop_count2);
 		}
 
@@ -301,10 +309,10 @@ void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double
 
 			degree = (45 * total_pulses) / 6;
 
-			SendGeneralPacket2("A0", "13", Convert(degree, 8), Axis);
+			SendGeneralPacket2("A0", "13", Convert(degree, 8));
 			HeartbeatJ2S(usleep_time, loop_count);
 
-			SendGeneralPacket2("A0", "13", Convert(second_data, 8), Axis);
+			SendGeneralPacket2("A0", "13", Convert(second_data, 8));
 			HeartbeatJ2S(usleep_time, loop_count2);
 		}
 
@@ -316,7 +324,7 @@ void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double
 
 			degree = (degree * total_pulses) / 6;
 			// std::cout<<"Current degree pulse: "<<degree<<std::endl;
-			SendGeneralPacket2("A0", "13", Convert(degree, 8), Axis); // Forward Moving Distance
+			SendGeneralPacket2("A0", "13", Convert(degree, 8)); // Forward Moving Distance
 
 			HeartbeatJ2S(usleep_time, loop_count);
 		}
@@ -329,7 +337,7 @@ void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double
 
 			degree = (degree * total_pulses) / 6;
 			// std::cout<<"Current degree pulse: "<<degree<<std::endl;
-			SendGeneralPacket2("A0", "13", Convert(degree, 8), Axis); // Forward Moving Distance
+			SendGeneralPacket2("A0", "13", Convert(degree, 8)); // Forward Moving Distance
 
 			HeartbeatJ2S(usleep_time, loop_count);
 		}
@@ -348,7 +356,7 @@ void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double
 
 		degree = (degree * total_pulses) / 6;
 		// std::cout<<"Current degree pulse: "<<degree<<std::endl;
-		SendGeneralPacket2("A0", "13", Convert(degree, 8), Axis); // Forward Moving Distance
+		SendGeneralPacket2("A0", "13", Convert(degree, 8)); // Forward Moving Distance
 
 		HeartbeatJ2S(usleep_time, loop_count);
 
@@ -363,7 +371,7 @@ void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double
 
 		degree = (degree * total_pulses) / 6;
 		// std::cout<<"Current degree pulse: "<<degree<<std::endl;
-		SendGeneralPacket2("A0", "13", Convert(degree, 8), Axis); // Forward Moving Distance
+		SendGeneralPacket2("A0", "13", Convert(degree, 8)); // Forward Moving Distance
 
 		HeartbeatJ2S(usleep_time, loop_count);
 		// SendAllStatusReadPacket();
@@ -409,6 +417,7 @@ void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double
 	// usleep(80000);
 }
 
+<<<<<<< HEAD
 void Packet::ReadDisplay(std::string receivedPacket, std::string comment)
 {
 	std::cout << comment;
@@ -431,6 +440,8 @@ void Packet::ReceivedDataProcessing(std::string receivedPacket)
 	}
 }
 
+=======
+>>>>>>> parent of d1d4bf2 (Acknowledge Reveice and Process, Pulse Read Commands)
 //////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////DegreeRotationJ2S/////////////////////////////////////
 //////////////////////////////////Without electronic gear ratio///////////////////////////////

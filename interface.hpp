@@ -35,9 +35,9 @@ class Packet{
 		bool print;
 		SerialPort serialPort;
 		Packet(std::string port);
-		std::string errorCode[6] = {"Normal Operation","Parity Error","CheckSum Error","Character Error","Command Error","DataNo. Error"};
-		void SendGeneralPacket2(std::string Com, std::string dataNo,char stNo);
-		void SendGeneralPacket2(std::string Com, std::string dataNo, std::string data,char stNo);
+
+		void SendGeneralPacket2(std::string Com, std::string dataNo);
+		void SendGeneralPacket2(std::string Com, std::string dataNo, std::string data);
 		void SendAllStatusReadPacket(void);
 		void ClearPacketStream(void);
 		void StartupSequenceJ2S (int usleep_time);
@@ -45,9 +45,7 @@ class Packet{
 		void SpeedAccelSetupJ2S(int usleep_time,int speed,int acceleration);
 		void DegreeRotationJ2S(double degree, int usleep_time, int sleep, double total_pulses);
 		void StopMotionJ2S(void);
-		void ReadDisplay(std::string receivedPacket, std::string comment);
-		void ReceivedDataProcessing(std::string receivedPacket);
-		// std::string PacketNames
+		
 		// void StartupSequenceAzimuth (int usleep_time);
 		// void StartupSequenceElevation (int usleep_time);
 		// void HeartbeatAzimuth(int usleep_time, int loop_time);
@@ -61,7 +59,6 @@ class Packet{
 		// void StopMotionAzimuth(void);
 		// void StopMotionElevation(void);
 		std::string CalCheckSum(void);
-		std::string CalCheckSumRec(void);
 		std::string Stringpad(std::string string_to_pad, int length, char character_pad);
 		std::string Convert(long int num, int bit_length);
 
