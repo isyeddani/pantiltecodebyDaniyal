@@ -31,21 +31,21 @@ void Packet::StartupSequenceJ2S(int usleep_time)
 {
 	// serialPort.SetReadBufferClear();
 	SendGeneralPacket2("90", "00", "1EA5", Axis); // DisableExInputsPacket
-	serialPort.Read(ReceivedPacket);
-	ReadDisplay(ReceivedPacket, "Acceleration");
-	ReceivedDataProcessing(ReceivedPacket);
+	// serialPort.Read(ReceivedPacket);
+	// ReadDisplay(ReceivedPacket, "Acceleration");
+	// ReceivedDataProcessing(ReceivedPacket);
 	usleep(usleep_time);
 
 	SendGeneralPacket2("8B", "00", "0002", Axis); // Position Operation Enable
-	serialPort.Read(ReceivedPacket);
-	ReadDisplay(ReceivedPacket, "Position Operation Enable");
-	ReceivedDataProcessing(ReceivedPacket);
-	usleep(usleep_time);
+	// serialPort.Read(ReceivedPacket);
+	// ReadDisplay(ReceivedPacket, "Position Operation Enable");
+	// ReceivedDataProcessing(ReceivedPacket);
+	// usleep(usleep_time);
 
-	SendGeneralPacket2("01", "8B", Axis);
-	usleep(usleep_time);
-	serialPort.Read(ReceivedPacket);
-	ReadDisplay(ReceivedPacket, "Cummulative Feedback Pulses:");
+	// SendGeneralPacket2("01", "8B", Axis);
+	// usleep(usleep_time);
+	// serialPort.Read(ReceivedPacket);
+	// ReadDisplay(ReceivedPacket, "Cummulative Feedback Pulses:");
 	usleep(usleep_time);
 }
 
@@ -66,7 +66,7 @@ void Packet::SendGeneralPacket2(std::string com, std::string dataNo, char stNo)
 	std::string checksum = CalCheckSum();
 	PacketStream << checksum[1] << checksum[0];
 	PacketString = PacketStream.str();
-	std::cout << PacketString << std::endl;
+	// std::cout << PacketString << std::endl;
 	serialPort.Write(PacketString);
 	// serialPort.Read(ReceivedPacket);
 	if (print)
@@ -84,7 +84,7 @@ void Packet::SendGeneralPacket2(std::string com, std::string dataNo, std::string
 	std::string checksum = CalCheckSum();
 	PacketStream << checksum[1] << checksum[0];
 	PacketString = PacketStream.str();
-	std::cout << PacketString << std::endl;
+	// std::cout << PacketString << std::endl;
 	serialPort.Write(PacketString);
 	// serialPort.Read(ReceivedPacket);
 	if (print)
@@ -343,7 +343,7 @@ void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double
 	else if (total_pulses == 131072)
 	{
 		degree2 = sqrt(pow(degree, 2));
-		degree_time = (degree2 / ((double)speed / 1.66667)) * 60;
+		degree_time = (degree2 / ((double)speed / 1.66667)) * 30;
 		loop_count = degree_time * 4;
 
 		degree = (degree * total_pulses) / 6;
@@ -358,7 +358,7 @@ void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double
 	else if (total_pulses == 8196)
 	{
 		degree2 = sqrt(pow(degree, 2));
-		degree_time = (degree2 / ((double)speed / 1.66667)) * 60;
+		degree_time = (degree2 / ((double)speed / 1.66667)) * 30;
 		loop_count = degree_time * 4;
 
 		degree = (degree * total_pulses) / 6;
