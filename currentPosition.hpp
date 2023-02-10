@@ -9,19 +9,60 @@
 using namespace mn::CppLinuxSerial;
 using namespace std::chrono;
 
-class pulseCount{
-    private:
-        int azimuthPulses;
-        int azimauthRevCounts;
-        int elevationRevCounts;
-        int elevationPulses;
-    public:
-        void set_azimuthPulses(int set_azimuthPulses);
-        void set_elevationPulses(int set_elevationPulses);
-        void set_elevationRevCounts(int set_elevationRevCounts);
-        void set_RevCounts(int set_RevCounts);
-        void get_azimuthPulses(int set_azimuthPulses);
-        void get_elevationPulses(int set_elevationPulses);
-        void get_elevationRevCounts(int set_elevationRevCounts);
-        void get_RevCounts(int set_RevCounts);
-}
+class pulseCount
+{
+private:
+    /// @brief
+    int TotalAzimuthPulses;
+    /// @brief
+    int TotalElevationPulses;
+    /// @brief
+    int RevCountsAzimuth;
+    /// @brief
+    int RevCountsElevation;
+    /// @brief 
+    std::string errorCode[6] = {"Normal Operation", "Parity Error", "CheckSum Error", "Character Error", "Command Error", "DataNo. Error"};
+
+public:
+    /// @brief
+    /// @return
+    int getAzimuthPulses();
+
+    /// @brief
+    /// @param azimuthPul
+    void setAzimuthPulses(int azimuthPul);
+
+    /// @brief
+    /// @return
+    int getAzimuthRevCount();
+
+    /// @brief
+    /// @param azimuthRev
+    void setAzimuthRevCount(int azimuthRev);
+
+    /// @brief
+    /// @return
+    int getElevationPulses();
+
+    /// @brief
+    /// @param elevationPul
+    void setElevationPulses(int elevationPul);
+
+    /// @brief
+    /// @return
+    int getElevationRevCount();
+
+    /// @brief
+    /// @param elevationRev
+    void setElevationRevCount(int elevationRev);
+
+    /// @brief
+    /// @param receivedPacket
+    /// @param comment
+    void ReadDisplay(std::string receivedPacket, std::string comment);
+
+    /// @brief 
+    /// @param receivedPacket 
+    /// @return True if authentic Acknowledge, False is Bad Acknowledge  
+    bool ReceivedDataProcessing(std::string receivedPacket);
+};

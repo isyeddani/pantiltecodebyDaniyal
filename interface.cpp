@@ -1,7 +1,8 @@
 #include "interface.hpp"
+// #include "currentPosition.hpp"
 #include <cmath>
 
-Packet::Packet(std::string port)
+Packet::Packet(std::string port, std::string objectName)
 {
 	serialPort = SerialPort(port, BaudRate::B_9600, NumDataBits::EIGHT, Parity::EVEN, NumStopBits::ONE);
 	serialPort.SetTimeout(1000);
@@ -11,6 +12,7 @@ Packet::Packet(std::string port)
 	this->ETX = 0x03;
 	this->EOT = 0x04;
 	this->Axis = 0x30;
+	this->ValidSentRec = false;
 	this->TestMode = "0000";
 	this->JogMode = "0001";
 	this->PositionMode = "0002";
@@ -21,38 +23,87 @@ Packet::Packet(std::string port)
 	this->Forward = "00000807";
 	this->Backward = "00001007";
 	this->Stop = "00000007";
-	print = false;
+	this->print = false;
 	this->ReceivedPacket = "";
+	this->Tag = objectName;
 }
 
 // For J2S Motor
 ////////////////// NEW StartupSequenceJ2S Daniyal 20-Jan//////////////////////
 void Packet::StartupSequenceJ2S(int usleep_time)
 {
-	// serialPort.SetReadBufferClear();
-	SendGeneralPacket2("90", "00", "1EA5", Axis); // DisableExInputsPacket
-	// serialPort.Read(ReceivedPacket);
-	// ReadDisplay(ReceivedPacket, "Acceleration");
-	// ReceivedDataProcessing(ReceivedPacket);
-	usleep(usleep_time);
+	std::cout << "----------" + Tag + "-----------" << std::endl;
+	serialPort.Read(ReceivedPacket);
+	FlushSerialBuffer();
 
-	SendGeneralPacket2("8B", "00", "0002", Axis); // Position Operation Enable
-	// serialPort.Read(ReceivedPacket);
-	// ReadDisplay(ReceivedPacket, "Position Operation Enable");
-	// ReceivedDataProcessing(ReceivedPacket);
-	// usleep(usleep_time);
+	while (ValidSentRec == false)
+	{
+		SendGeneralPacket2("90", "00", "1EA5", Axis); // DisableExInputsPacket
+		serialPort.Read(ReceivedPacket);
+		usleep(usleep_time);
+		pulseCountObject.ReadDisplay(ReceivedPacket, "DisableExInputsPacket");
+		ValidSentRec = pulseCountObject.ReceivedDataProcessing(ReceivedPacket);
+	}
+	
+	ValidSentRec = false;
+	while (ValidSentRec == false)
+	{
+		SendGeneralPacket2("8B", "00", "0002", Axis); // Position Operation Enable
+		usleep(usleep_time);
+		serialPort.Read(ReceivedPacket);
+		pulseCountObject.ReadDisplay(ReceivedPacket, "Position Operation Enable");
+		ValidSentRec = pulseCountObject.ReceivedDataProcessing(ReceivedPacket);
+	}
 
-	// SendGeneralPacket2("01", "8B", Axis);
+	ValidSentRec = false;
+	while (ValidSentRec == false)
+	{
+		SendGeneralPacket2("01", "80", Axis); // Cummulative Feedback Pulses
+		usleep(usleep_time);
+		serialPort.Read(ReceivedPacket);
+		pulseCountObject.ReadDisplay(ReceivedPacket, "Cummulative Feedback Pulses");
+		ValidSentRec = pulseCountObject.ReceivedDataProcessing(ReceivedPacket);
+	}
+
+	ValidSentRec = false;
+	while (ValidSentRec == false)
+	{
+		SendGeneralPacket2("01", "82", Axis); // Droop Pulses
+		usleep(usleep_time);
+		serialPort.Read(ReceivedPacket);
+		pulseCountObject.ReadDisplay(ReceivedPacket, "Droop Pulses");
+		ValidSentRec = pulseCountObject.ReceivedDataProcessing(ReceivedPacket);
+	}
+	// SendGeneralPacket2("01", "83", Axis); // Droop Pulses
 	// usleep(usleep_time);
 	// serialPort.Read(ReceivedPacket);
-	// ReadDisplay(ReceivedPacket, "Cummulative Feedback Pulses:");
-	usleep(usleep_time);
+	// pulseCountObject.ReadDisplay(ReceivedPacket, "Droop Pulses");
+	// pulseCountObject.ReceivedDataProcessing(ReceivedPacket);
+
+	// SendGeneralPacket2("01", "8B", Axis); // Within one-revolution position
+	// usleep(usleep_time);
+	// serialPort.Read(ReceivedPacket);
+	// pulseCountObject.ReadDisplay(ReceivedPacket, "Within one-revolution position");
+	// pulseCountObject.ReceivedDataProcessing(ReceivedPacket);
+
+	ValidSentRec = false;
+	while (ValidSentRec == false)
+	{
+		SendGeneralPacket2("01", "8C", Axis); // ABS Counter
+		usleep(usleep_time);
+		serialPort.Read(ReceivedPacket);
+		pulseCountObject.ReadDisplay(ReceivedPacket, "ABS Counter");
+		ValidSentRec = pulseCountObject.ReceivedDataProcessing(ReceivedPacket);
+	}
 }
 
 void Packet::SpeedAccelSetupJ2S(int usleep_time, int speed, int acceleration)
 {
 	SendGeneralPacket2("A0", "10", Convert(speed, 4), Axis); // Set Speed in RPM
 	usleep(usleep_time);
+	// std::cout<<Tag+" : ";
+	// serialPort.Read(ReceivedPacket);
+	// pulseCountObject.ReadDisplay(ReceivedPacket, "General3");
 	SendGeneralPacket2("A0", "11", Convert(acceleration, 8), Axis); // acceleration time constant ms
 	usleep(usleep_time);
 	SendGeneralPacket2("92", "00", "00000007", Axis); // servo ON
@@ -235,6 +286,14 @@ void Packet::StopMotionJ2S(void)
 	SendGeneralPacket2("90", "00", "1EA5", 0x30);
 }
 
+void Packet::FlushSerialBuffer()
+{
+	while (ReceivedPacket.length() > 0)
+	{
+		serialPort.Read(ReceivedPacket);
+	}
+}
+
 void Packet::HeartbeatJ2S(int usleep_time, int loop_time)
 {
 	for (int i = 0; i < loop_time; i++)
@@ -297,7 +356,7 @@ void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double
 
 			degree2 = sqrt(pow(degree, 2));
 			degree_time = (degree2 / ((double)speed / 1.66667)) * 45;
-			loop_count = degree_time * 13;
+			loop_count = degree_time * 20;
 
 			degree = (45 * total_pulses) / 6;
 
@@ -312,7 +371,7 @@ void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double
 		{
 			degree2 = sqrt(pow(degree, 2));
 			degree_time = (degree2 / ((double)speed / 1.66667)) * 45;
-			loop_count = degree_time * 13;
+			loop_count = degree_time * 20;
 
 			degree = (degree * total_pulses) / 6;
 			// std::cout<<"Current degree pulse: "<<degree<<std::endl;
@@ -343,7 +402,7 @@ void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double
 	else if (total_pulses == 131072)
 	{
 		degree2 = sqrt(pow(degree, 2));
-		degree_time = (degree2 / ((double)speed / 1.66667)) * 30;
+		degree_time = (degree2 / ((double)speed / 1.66667)) * 20;
 		loop_count = degree_time * 4;
 
 		degree = (degree * total_pulses) / 6;
@@ -385,12 +444,12 @@ void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double
 	// usleep(usleep_time);
 
 	// std::cout<<Convert(degree,8)<<std::endl;
-		// serialPort.Read(ReceivedPacket);
-		// // serialPort.Read(ReceivedPacket);
-		// // serialPort.Read(ReceivedPacket);
-		// // serialPort.Read(ReceivedPacket);
-		// // serialPort.Read(ReceivedPacket);
-		// // serialPort.Read(ReceivedPacket);
+	// serialPort.Read(ReceivedPacket);
+	// // serialPort.Read(ReceivedPacket);
+	// // serialPort.Read(ReceivedPacket);
+	// // serialPort.Read(ReceivedPacket);
+	// // serialPort.Read(ReceivedPacket);
+	// // serialPort.Read(ReceivedPacket);
 	// SendGeneralPacket2("01", "83", Axis);
 	// usleep(80000);
 	// serialPort.Read(ReceivedPacket);
@@ -407,28 +466,8 @@ void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double
 	// serialPort.Read(ReceivedPacket);
 	// ReadDisplay(ReceivedPacket, "Cummulative Feedback Pulses after Set Clear: ");
 	// usleep(80000);
-}
-
-void Packet::ReadDisplay(std::string receivedPacket, std::string comment)
-{
-	std::cout << comment;
-	std::cout << receivedPacket << std::endl;
-}
-
-void Packet::ReceivedDataProcessing(std::string receivedPacket)
-{
-	if (receivedPacket.length() == 6)
-	{
-		if (receivedPacket[2] != 0x41)
-		{
-			std::cout << errorCode[receivedPacket[2] - 0x41];
-			return;
-		}
-		if (receivedPacket[4] != 0x037 && receivedPacket[5] != 0x034)
-		{
-			std::cout << "Correct Check Sum Not Received" << std::endl;
-		}
-	}
+	usleep(usleep_time);
+	std::cout << "_________" << std::endl;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////
