@@ -1,0 +1,4 @@
+Elevation:
+2.00702
+Azimuth:
+-200

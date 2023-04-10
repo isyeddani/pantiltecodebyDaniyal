@@ -1,12 +1,19 @@
+#include <string>
 #include "interface.hpp"
+#include <chrono>
+#include <unistd.h>
+using namespace std;
 // #include "currentPosition.hpp"
-#include <cmath>
+// #include <cmath>
 
-Packet::Packet(std::string port, std::string objectName)
+Packet::Packet(std::string port, std::string Cap)
 {
 	serialPort = SerialPort(port, BaudRate::B_9600, NumDataBits::EIGHT, Parity::EVEN, NumStopBits::ONE);
 	serialPort.SetTimeout(1000);
 	serialPort.Open();
+	this->Tag = Cap;
+	this->Direction = true;
+	pulseCountObject = PulseCount(Tag);
 	this->SOH = 0x01;
 	this->STX = 0x02;
 	this->ETX = 0x03;
@@ -25,26 +32,41 @@ Packet::Packet(std::string port, std::string objectName)
 	this->Stop = "00000007";
 	this->print = false;
 	this->ReceivedPacket = "";
-	this->Tag = objectName;
+	this->SerialBufferFlag = false;
+	this->motionFlag = false;
+}
+
+void Packet::FlushSerialBuffer()
+{
+	while (ReceivedPacket.length() != 0)
+	{
+		ReceivedPacket = "";
+		serialPort.Read(ReceivedPacket);
+	}
 }
 
 // For J2S Motor
 ////////////////// NEW StartupSequenceJ2S Daniyal 20-Jan//////////////////////
 void Packet::StartupSequenceJ2S(int usleep_time)
 {
-	std::cout << "----------" + Tag + "-----------" << std::endl;
-	serialPort.Read(ReceivedPacket);
-	FlushSerialBuffer();
-
+	ReceivedPacket = "";
+	ValidSentRec = false;
 	while (ValidSentRec == false)
 	{
-		SendGeneralPacket2("90", "00", "1EA5", Axis); // DisableExInputsPacket
-		serialPort.Read(ReceivedPacket);
+		SendGeneralPacket2("90", "00", "1EA5", Axis); // DisableExternalInputsPacket
 		usleep(usleep_time);
-		pulseCountObject.ReadDisplay(ReceivedPacket, "DisableExInputsPacket");
-		ValidSentRec = pulseCountObject.ReceivedDataProcessing(ReceivedPacket);
+		serialPort.Read(ReceivedPacket);
+		pulseCountObject.ReadDisplay(ReceivedPacket, "DisableExternalInputsPacket");
+		ValidSentRec = pulseCountObject.ReceivedDataProcessing(ReceivedPacket, false);
+		if (ValidSentRec == false)
+		{
+			// std::cout << "ERROR: Serial Buffer Not Clear" << std::endl;
+			FlushSerialBuffer();
+			// usleep(usleep_time);
+			// usleep(usleep_time);
+		}
 	}
-	
+	ReceivedPacket = "";
 	ValidSentRec = false;
 	while (ValidSentRec == false)
 	{
@@ -52,62 +74,30 @@ void Packet::StartupSequenceJ2S(int usleep_time)
 		usleep(usleep_time);
 		serialPort.Read(ReceivedPacket);
 		pulseCountObject.ReadDisplay(ReceivedPacket, "Position Operation Enable");
-		ValidSentRec = pulseCountObject.ReceivedDataProcessing(ReceivedPacket);
+		ValidSentRec = pulseCountObject.ReceivedDataProcessing(ReceivedPacket, false);
+		if (ValidSentRec == false)
+		{
+			// std::cout << "ERROR: Serial Buffer Not Clear" << std::endl;
+			FlushSerialBuffer();
+			// usleep(usleep_time);
+			// usleep(usleep_time);
+		}
 	}
-
 	ValidSentRec = false;
-	while (ValidSentRec == false)
-	{
-		SendGeneralPacket2("01", "80", Axis); // Cummulative Feedback Pulses
-		usleep(usleep_time);
-		serialPort.Read(ReceivedPacket);
-		pulseCountObject.ReadDisplay(ReceivedPacket, "Cummulative Feedback Pulses");
-		ValidSentRec = pulseCountObject.ReceivedDataProcessing(ReceivedPacket);
-	}
-
-	ValidSentRec = false;
-	while (ValidSentRec == false)
-	{
-		SendGeneralPacket2("01", "82", Axis); // Droop Pulses
-		usleep(usleep_time);
-		serialPort.Read(ReceivedPacket);
-		pulseCountObject.ReadDisplay(ReceivedPacket, "Droop Pulses");
-		ValidSentRec = pulseCountObject.ReceivedDataProcessing(ReceivedPacket);
-	}
-	// SendGeneralPacket2("01", "83", Axis); // Droop Pulses
-	// usleep(usleep_time);
-	// serialPort.Read(ReceivedPacket);
-	// pulseCountObject.ReadDisplay(ReceivedPacket, "Droop Pulses");
-	// pulseCountObject.ReceivedDataProcessing(ReceivedPacket);
-
-	// SendGeneralPacket2("01", "8B", Axis); // Within one-revolution position
-	// usleep(usleep_time);
-	// serialPort.Read(ReceivedPacket);
-	// pulseCountObject.ReadDisplay(ReceivedPacket, "Within one-revolution position");
-	// pulseCountObject.ReceivedDataProcessing(ReceivedPacket);
-
-	ValidSentRec = false;
-	while (ValidSentRec == false)
-	{
-		SendGeneralPacket2("01", "8C", Axis); // ABS Counter
-		usleep(usleep_time);
-		serialPort.Read(ReceivedPacket);
-		pulseCountObject.ReadDisplay(ReceivedPacket, "ABS Counter");
-		ValidSentRec = pulseCountObject.ReceivedDataProcessing(ReceivedPacket);
-	}
 }
+
 
 void Packet::SpeedAccelSetupJ2S(int usleep_time, int speed, int acceleration)
 {
 	SendGeneralPacket2("A0", "10", Convert(speed, 4), Axis); // Set Speed in RPM
 	usleep(usleep_time);
-	// std::cout<<Tag+" : ";
-	// serialPort.Read(ReceivedPacket);
-	// pulseCountObject.ReadDisplay(ReceivedPacket, "General3");
+	serialPort.Read(ReceivedPacket);
 	SendGeneralPacket2("A0", "11", Convert(acceleration, 8), Axis); // acceleration time constant ms
 	usleep(usleep_time);
+	serialPort.Read(ReceivedPacket);
 	SendGeneralPacket2("92", "00", "00000007", Axis); // servo ON
 	usleep(usleep_time);
+	serialPort.Read(ReceivedPacket);
 }
 
 void Packet::SendGeneralPacket2(std::string com, std::string dataNo, char stNo)
@@ -117,13 +107,7 @@ void Packet::SendGeneralPacket2(std::string com, std::string dataNo, char stNo)
 	std::string checksum = CalCheckSum();
 	PacketStream << checksum[1] << checksum[0];
 	PacketString = PacketStream.str();
-	// std::cout << PacketString << std::endl;
 	serialPort.Write(PacketString);
-	// serialPort.Read(ReceivedPacket);
-	if (print)
-	{
-		std::cout << "This is the packet string: " << PacketString << std::endl;
-	}
 }
 
 void Packet::SendGeneralPacket2(std::string com, std::string dataNo, std::string data, char stNo)
@@ -137,11 +121,8 @@ void Packet::SendGeneralPacket2(std::string com, std::string dataNo, std::string
 	PacketString = PacketStream.str();
 	// std::cout << PacketString << std::endl;
 	serialPort.Write(PacketString);
-	// serialPort.Read(ReceivedPacket);
-	if (print)
-	{
-		std::cout << "This is the packet string: " << PacketString << std::endl;
-	} // std::cout << ReceivedPacket << std::endl;
+	usleep(80000);
+	serialPort.Read(ReceivedPacket);
 }
 
 void Packet::SendAllStatusReadPacket(void)
@@ -150,6 +131,8 @@ void Packet::SendAllStatusReadPacket(void)
 	for (int i = 0; i <= 12; i++)
 	{
 		SendGeneralPacket2("01", str, Axis);
+		usleep(80000);
+		serialPort.Read(ReceivedPacket);
 		// std::cout << str << std::endl;
 		if (str[1] == '9')
 		{
@@ -179,6 +162,7 @@ std::string Packet::CalCheckSum(void)
 	{
 		sum = sum + str[i];
 	}
+
 	// std::cout << sum << std::endl;
 
 	int last2cs = ((unsigned char *)&sum)[0];
@@ -224,73 +208,31 @@ std::string Packet::Stringpad(std::string stringer, int length, char character_p
 		}
 		return stringer;
 	}
-	// Sheheryar edit
-
-	// std::string string_to_pad;
-	// string_to_pad=stringer;
-	// if (character_pad =='F')
-	// {
-	//   string_to_pad.erase(0,length);
-	//
-	//   string_to_pad = string_to_pad;
-	// }
-	// else
-	// {
-	//   for (int i =0; i <length - stringer.length(); i++)
-	//   {
-	//     string_to_pad = character_pad + string_to_pad;
-	//   }
-	//
-	// }// std::cout<<stringer.length()<<std::endl;
-	// return string_to_pad;
-}
-
-std::string Packet::Convert(long int num, int bit_length)
-{
-	std::stringstream stream;
-	stream << std::hex << std::uppercase << num;
-	std::string result(stream.str());
-	return result = (num < 0) ? Stringpad(result, bit_length, 'F') : result = Stringpad(result, bit_length, '0');
-	// arg=result;
-	// std::cout<<result;
-	//    return result;
-	// sheheryar edit
-	// if (num<0)
-	// {
-	//   stream << std::hex <<std::uppercase<< num;
-	//   // std::cout<<"wew\n";
-	//   std::cout<<stream.str()<<std::endl;
-	//   std::string result( stream.str() );
-	//   // std::cout<<result;
-	//   result = Stringpad(result, bit_length, 'F');
-	//   // std::cout<<"pad\n";
-	//   arg =result;
-	//   std::cout<<arg<<std::endl;
-	//
-	//
-	//
-	// }
-	// else
-	// {
-	//   stream << std::hex <<std::uppercase<< num;
-	//   std::string result( stream.str() );
-	//   result = Stringpad(result, bit_length, '0');
-	//   arg=result;
-	//
-	// }
-	// return arg;
 }
 
 void Packet::StopMotionJ2S(void)
 {
 	SendGeneralPacket2("90", "00", "1EA5", 0x30);
+	serialPort.Read(ReceivedPacket);
 }
 
-void Packet::FlushSerialBuffer()
+
+void Packet::DisplayData(int usleep_time, bool doCalculation)
 {
-	while (ReceivedPacket.length() > 0)
+	std::cout << "----------" + Tag + "-----------" << std::endl;
+	FlushSerialBuffer();
+	ValidSentRec = false;
+	while (ValidSentRec == false)
 	{
+		SendGeneralPacket2("01", "80", Axis); // Cummulative Feedback Pulses
+		usleep(usleep_time);
 		serialPort.Read(ReceivedPacket);
+		// pulseCountObject.ReadDisplay(ReceivedPacket, "Cummulative Feedback Pulses");
+		ValidSentRec = pulseCountObject.ReceivedDataProcessing(ReceivedPacket, doCalculation);
+		if (ValidSentRec == false)
+		{
+			FlushSerialBuffer();
+		}
 	}
 }
 
@@ -298,11 +240,40 @@ void Packet::HeartbeatJ2S(int usleep_time, int loop_time)
 {
 	for (int i = 0; i < loop_time; i++)
 	{
+		auto S = chrono::steady_clock::now();
+		// SendGeneralPacket2("01", "80", Axis);
 		SendGeneralPacket2("00", "12", 0x30);
 		usleep(usleep_time);
+		DisplayData(usleep_time, false);
+		// std::cout << "Heart Beat:" << std::endl;
+		// serialPort.Read(ReceivedPacket);
+		auto E = chrono::steady_clock::now();
+		std::cout << "Elapsed time in microseconds: "
+				  << chrono::duration_cast<chrono::microseconds>(E - S).count()
+				  << " µs" << std::endl;
 	}
 	SendGeneralPacket2("90", "00", "1EA5", 0x30);
+	usleep(usleep_time);
+	serialPort.Read(ReceivedPacket);
+	motionFlag = false;
 }
+
+
+// void Packet::HeartbeatJ2S(int ReqVal, int usleep_time, int loop_time)
+// {
+// 	std::cout << " Required Value:" << ReqVal << std::endl;
+// 	double Temp = 0;
+// 	while (round(Temp) >= ReqVal)
+// 	{
+// 		SendGeneralPacket2("00", "12", 0x30);
+// 		usleep(usleep_time);
+// 		serialPort.Read(ReceivedPacket);
+// 		DisplayData(usleep_time);
+// 		Temp = pulseCountObject.getCurrentAngle();
+// 		std::cout << std::endl
+// 				  << " Round(Temp):" << round(Temp) << std::endl;
+// 	}
+// }
 
 void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double total_pulses)
 {
@@ -311,129 +282,218 @@ void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double
 	double second_data_time;
 	int loop_count2;
 	int loop_count; // check value on different PCs
-	double degree2;
-	// double seconds =60 / ((double)speed/60);
+	double degree2; // double seconds =60 / ((double)speed/60);
 	double degree_time;
+	if (Tag == "Azimuth")
+	{
+		// int ReqValue = pulseCountObject.getCurrentAngle() + degree;
+		if (pulseCountObject.getCurrentAngle() + degree < 1080 && pulseCountObject.getCurrentAngle() + degree > -1080)
+		{
+
+			int TempCheck1 = ((pulseCountObject.getCurrentAngle() + degree) / 457.7636); // This will check if Buffer Overlaod is going to happen.
+			int TempCheck2 = (pulseCountObject.getCurrentAngle() / 457.7636);
+			if (fabs(TempCheck1) > fabs(TempCheck2))
+			{
+				pulseCountObject.OverLoadFlag += 1;
+				pulseCountObject.overLoadOccuranceFlag = true;
+			}
+			else if (fabs(TempCheck1) < fabs(TempCheck2))
+			{
+				pulseCountObject.OverLoadFlag -= 1;
+				pulseCountObject.overLoadOccuranceFlag = true;
+			}
+			else
+			{
+				pulseCountObject.overLoadOccuranceFlag = false;
+			}
+			{
+				degree2 = sqrt(pow(degree, 2));
+				degree_time = (degree2 / ((double)speed / 1.66667)) * 20;
+				loop_count = degree_time * 4;
+
+				degree = (degree * total_pulses) / 6;
+				// std::cout<<"Current degree pulse: "<<degree<<std::endl;
+				motionFlag = true;
+				// FlushSerialBuffer();
+				SendGeneralPacket2("A0", "13", Convert(degree, 8), Axis); // Forward Moving Distance
+				// usleep(usleep_time);
+				// serialPort.Read(ReceivedPacket);
+				// std::cout << "Forward movement Ack: " << ReceivedPacket << std::endl;
+				// HeartbeatJ2S(ReqValue, usleep_time, loop_count);
+				HeartbeatJ2S(usleep_time, loop_count);
+				// std::cout<<Convert(degree,8)<<std::endl;
+			}
+			return;
+		}
+		else
+		{
+			std::cout << std::endl
+					  << std::endl
+					  << "Azimuth Movement Limit" << std::endl;
+			return;
+		}
+	}
+	else if (Tag == "Elevation")
+	{
+		if ((pulseCountObject.getCurrentAngle() + degree) < 60 && (pulseCountObject.getCurrentAngle() + degree) > -60)
+		{
+			// One OverLoad to Next OverLoad.
+			//  Example => ((40)+10)/45.776 = 1.092 => int(TempCheck1) = 1;
+			//  Example => (40)/45.776 = 0.873 => int(TempCheck1) = 0;
+			//  Example => ((60)+40)/45.776 = 2.1845 => int(TempCheck1) = 2;
+			//  Example => (60)/45.776 = 1.310 => int(TempCheck1) = 1;
+			int TempCheck1 = ((pulseCountObject.getCurrentAngle() + degree) / 45.77636); // This will check if Buffer Overlaod is going to happen.
+			int TempCheck2 = (pulseCountObject.getCurrentAngle() / 45.77636);
+			// Fabs() to Get Same Result in +ve & -ve
+			// Example => fabs(-1) = 1; fabs(-2) = 2;
+			if (fabs(TempCheck1) > fabs(TempCheck2))
+			{
+				pulseCountObject.OverLoadFlag += 1;
+				pulseCountObject.overLoadOccuranceFlag = true;
+			}
+			else if (fabs(TempCheck1) < fabs(TempCheck2))
+			{
+				pulseCountObject.OverLoadFlag -= 1;
+				pulseCountObject.overLoadOccuranceFlag = true;
+			}
+			else
+			{
+				pulseCountObject.overLoadOccuranceFlag = false;
+			}
+			if ((degree < -45) && (degree >= -90))
+			{
+
+				second_data = degree + 45;
+				second_data2 = sqrt(pow(second_data, 2));
+				second_data_time = (second_data2 / ((double)speed / 1.66667)) * 45;
+				second_data = (second_data * total_pulses) / 6;
+
+				loop_count2 = second_data_time * 13; // check value on different PCs
+
+				degree2 = sqrt(pow(degree, 2));
+				degree_time = (degree2 / ((double)speed / 1.66667)) * 45;
+				loop_count = degree_time * 13;
+
+				degree = (-45 * total_pulses) / 6;
+
+				SendGeneralPacket2("A0", "13", Convert(degree, 8), Axis);
+				usleep(usleep_time);
+				serialPort.Read(ReceivedPacket);
+				HeartbeatJ2S(usleep_time, loop_count);
+
+				SendGeneralPacket2("A0", "13", Convert(second_data, 8), Axis);
+				usleep(usleep_time);
+				serialPort.Read(ReceivedPacket);
+				HeartbeatJ2S(usleep_time, loop_count2);
+				return;
+			}
+
+			else if ((degree > 45) && (degree <= 90))
+			{
+
+				second_data = degree - 45;
+				second_data2 = sqrt(pow(second_data, 2));
+				second_data_time = (second_data2 / ((double)speed / 1.66667)) * 45;
+				second_data = (second_data * total_pulses) / 6;
+
+				loop_count2 = second_data_time * 13; // check value on different PCs
+
+				degree2 = sqrt(pow(degree, 2));
+				degree_time = (degree2 / ((double)speed / 1.66667)) * 45;
+				loop_count = degree_time * 20;
+
+				degree = (45 * total_pulses) / 6;
+
+				SendGeneralPacket2("A0", "13", Convert(degree, 8), Axis);
+				usleep(usleep_time);
+				serialPort.Read(ReceivedPacket);
+				HeartbeatJ2S(usleep_time, loop_count);
+
+				SendGeneralPacket2("A0", "13", Convert(second_data, 8), Axis);
+				usleep(usleep_time);
+				serialPort.Read(ReceivedPacket);
+				HeartbeatJ2S(usleep_time, loop_count2);
+				return;
+			}
+
+			else if ((degree <= 45) && (degree > 0)) // less than 45
+			{
+				degree2 = sqrt(pow(degree, 2));
+				degree_time = (degree2 / ((double)speed / 1.66667)) * 45;
+				loop_count = degree_time * 20;
+
+				degree = (degree * total_pulses) / 6;
+				// std::cout<<"Current degree pulse: "<<degree<<std::endl;
+				SendGeneralPacket2("A0", "13", Convert(degree, 8), Axis); // Forward Moving Distance
+				usleep(usleep_time);
+				serialPort.Read(ReceivedPacket);
+				HeartbeatJ2S(usleep_time, loop_count);
+				return;
+			}
+			else if ((degree >= -45) && (degree < 0))
+			{
+
+				degree2 = sqrt(pow(degree, 2));
+				degree_time = (degree2 / ((double)speed / 1.66667)) * 45;
+				loop_count = degree_time * 13;
+
+				degree = (degree * total_pulses) / 6;
+				// std::cout<<"Current degree pulse: "<<degree<<std::endl;
+				SendGeneralPacket2("A0", "13", Convert(degree, 8), Axis); // Forward Moving Distance
+				usleep(usleep_time);
+				serialPort.Read(ReceivedPacket);
+				HeartbeatJ2S(usleep_time, loop_count);
+				return;
+			}
+			else
+			{
+				std::cout << "Incorrect Degree Value Sent : " << std::endl;
+				return;
+			}
+		}
+		else
+		{
+			std::cout << std::endl
+					  << std::endl
+					  << "Elevation Movement Limit" << std::endl;
+			return;
+		}
+	}
+	else
+	{
+		std::cout << std::endl
+				  << std::endl
+				  << "Invalid Tag" << std::endl;
+		return;
+	}
 
 	// calc = degree2/degree_per_minute * 60
 
 	// double sleep_time = (seconds *degree2)/360;
 	// degree = (degree*1317920)/6;
-	if (total_pulses == 1310720)
-	{
-		if ((degree < -45) && (degree >= -90))
-		{
 
-			second_data = degree + 45;
-			second_data2 = sqrt(pow(second_data, 2));
-			second_data_time = (second_data2 / ((double)speed / 1.66667)) * 45;
-			second_data = (second_data * total_pulses) / 6;
+	// else if (total_pulses == 131072)
 
-			loop_count2 = second_data_time * 13; // check value on different PCs
+	// 	else if (total_pulses == 8196)
+	// 	{
+	// 		degree2 = sqrt(pow(degree, 2));
+	// 		degree_time = (degree2 / ((double)speed / 1.66667)) * 30;
+	// 		loop_count = degree_time * 4;
 
-			degree2 = sqrt(pow(degree, 2));
-			degree_time = (degree2 / ((double)speed / 1.66667)) * 45;
-			loop_count = degree_time * 13;
+	// 		degree = (degree * total_pulses) / 6;
+	// 		// std::cout<<"Current degree pulse: "<<degree<<std::endl;
+	// 		SendGeneralPacket2("A0", "13", Convert(degree, 8), Axis); // Forward Moving Distance
 
-			degree = (-45 * total_pulses) / 6;
+	// 		HeartbeatJ2S(usleep_time, loop_count);
+	// 		// SendAllStatusReadPacket();
 
-			SendGeneralPacket2("A0", "13", Convert(degree, 8), Axis);
-			HeartbeatJ2S(usleep_time, loop_count);
+	// 		// std::cout<<Convert(degree,8)<<std::endl;
+	// 	}
 
-			SendGeneralPacket2("A0", "13", Convert(second_data, 8), Axis);
-			HeartbeatJ2S(usleep_time, loop_count2);
-		}
-
-		else if ((degree > 45) && (degree <= 90))
-		{
-
-			second_data = degree - 45;
-			second_data2 = sqrt(pow(second_data, 2));
-			second_data_time = (second_data2 / ((double)speed / 1.66667)) * 45;
-			second_data = (second_data * total_pulses) / 6;
-
-			loop_count2 = second_data_time * 13; // check value on different PCs
-
-			degree2 = sqrt(pow(degree, 2));
-			degree_time = (degree2 / ((double)speed / 1.66667)) * 45;
-			loop_count = degree_time * 20;
-
-			degree = (45 * total_pulses) / 6;
-
-			SendGeneralPacket2("A0", "13", Convert(degree, 8), Axis);
-			HeartbeatJ2S(usleep_time, loop_count);
-
-			SendGeneralPacket2("A0", "13", Convert(second_data, 8), Axis);
-			HeartbeatJ2S(usleep_time, loop_count2);
-		}
-
-		else if ((degree <= 45) && (degree > 0)) // less than 45
-		{
-			degree2 = sqrt(pow(degree, 2));
-			degree_time = (degree2 / ((double)speed / 1.66667)) * 45;
-			loop_count = degree_time * 20;
-
-			degree = (degree * total_pulses) / 6;
-			// std::cout<<"Current degree pulse: "<<degree<<std::endl;
-			SendGeneralPacket2("A0", "13", Convert(degree, 8), Axis); // Forward Moving Distance
-
-			HeartbeatJ2S(usleep_time, loop_count);
-		}
-		else if ((degree >= -45) && (degree < 0))
-		{
-
-			degree2 = sqrt(pow(degree, 2));
-			degree_time = (degree2 / ((double)speed / 1.66667)) * 45;
-			loop_count = degree_time * 13;
-
-			degree = (degree * total_pulses) / 6;
-			// std::cout<<"Current degree pulse: "<<degree<<std::endl;
-			SendGeneralPacket2("A0", "13", Convert(degree, 8), Axis); // Forward Moving Distance
-
-			HeartbeatJ2S(usleep_time, loop_count);
-		}
-
-		else
-		{
-			std::cout << "Incorrect Degree Value Sent : " << std::endl;
-		}
-	}
-
-	else if (total_pulses == 131072)
-	{
-		degree2 = sqrt(pow(degree, 2));
-		degree_time = (degree2 / ((double)speed / 1.66667)) * 20;
-		loop_count = degree_time * 4;
-
-		degree = (degree * total_pulses) / 6;
-		// std::cout<<"Current degree pulse: "<<degree<<std::endl;
-		SendGeneralPacket2("A0", "13", Convert(degree, 8), Axis); // Forward Moving Distance
-
-		HeartbeatJ2S(usleep_time, loop_count);
-
-		// std::cout<<Convert(degree,8)<<std::endl;
-	}
-
-	else if (total_pulses == 8196)
-	{
-		degree2 = sqrt(pow(degree, 2));
-		degree_time = (degree2 / ((double)speed / 1.66667)) * 30;
-		loop_count = degree_time * 4;
-
-		degree = (degree * total_pulses) / 6;
-		// std::cout<<"Current degree pulse: "<<degree<<std::endl;
-		SendGeneralPacket2("A0", "13", Convert(degree, 8), Axis); // Forward Moving Distance
-
-		HeartbeatJ2S(usleep_time, loop_count);
-		// SendAllStatusReadPacket();
-
-		// std::cout<<Convert(degree,8)<<std::endl;
-	}
-
-	else
-	{
-		std::cout << "Incorrect Number of Pulses" << std::to_string(total_pulses) << std::endl;
-	}
+	// else
+	// {
+	// 	std::cout << "Incorrect Number of Pulses" << std::to_string(total_pulses) << std::endl;
+	// }
 
 	// degree = (degree * total_pulses)/6;
 	// std::cout<<"Current degree pulse: "<<degree<<std::endl;
@@ -468,8 +528,59 @@ void Packet::DegreeRotationJ2S(double degree, int usleep_time, int speed, double
 	// usleep(80000);
 	usleep(usleep_time);
 	std::cout << "_________" << std::endl;
+	std::cout << "_________" << std::endl;
 }
 
+int Packet::RandomFunction()
+{
+	int Value = rand() % 45;
+	int Polarity = rand() % 2;
+	if (Polarity == 0)
+	{
+		Value = (Value) * (-1);
+	}
+	return Value;
+}
+
+int Packet::InputDegree()
+{
+	int Aux;
+	int Temp = 0;
+	std::cin >> Temp;
+	while (Temp > 0)
+	{
+		std::cout << "loop:" << std::endl;
+		Temp = 0;
+		std::cin >> Temp;
+	}
+	std::cout << Temp << std::endl;
+	std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+	if (Tag == "Azimuth")
+	{
+		std::cout << "Input Degrees for Azimuth: ";
+		std::cin >> Aux;
+		return Aux;
+	}
+	else if (Tag == "Elevation")
+	{
+		std::cout << "Input Degrees for Elevation: ";
+		std::cin >> Aux;
+		return Aux;
+	}
+	else
+	{
+		std::cout << "ERROR: Taking Degrees" << std::endl;
+		return 0;
+	}
+}
+
+std::string Packet::Convert(long int num, int bit_length)
+{
+	std::stringstream stream;
+	stream << std::hex << std::uppercase << num;
+	std::string result(stream.str());
+	return result = (num < 0) ? Stringpad(result, bit_length, 'F') : result = Stringpad(result, bit_length, '0');
+}
 //////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////DegreeRotationJ2S/////////////////////////////////////
 //////////////////////////////////Without electronic gear ratio///////////////////////////////

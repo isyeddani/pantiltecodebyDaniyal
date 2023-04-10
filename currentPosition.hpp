@@ -1,68 +1,81 @@
-#include <CppLinuxSerial/SerialPort.hpp>
+#ifndef CURRENTPOSITION_H // PHYSICS_H
+#define CURRENTPOSITION_H
+
+// #include <CppLinuxSerial/SerialPort.hpp>
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <unistd.h>
 #include <cmath>
 #include <chrono>
+#include <bitset>
+#include <bits/stdc++.h>
 
-using namespace mn::CppLinuxSerial;
-using namespace std::chrono;
+// using namespace mn::CppLinuxSerial;
+// using namespace std::chrono;
 
-class pulseCount
+/// @brief
+class PulseCount
 {
 private:
     /// @brief
-    int TotalAzimuthPulses;
+    double CurrentAngle = 0.0;
+    double PreviousAnlge = 0.0;
+    double NewAngle = 0.0;
+    double liveAngle = 0.0;
     /// @brief
-    int TotalElevationPulses;
+    int RevCount;
     /// @brief
-    int RevCountsAzimuth;
-    /// @brief
-    int RevCountsElevation;
-    /// @brief 
-    std::string errorCode[6] = {"Normal Operation", "Parity Error", "CheckSum Error", "Character Error", "Command Error", "DataNo. Error"};
+    std::string errorCode[6] = {"Normal Operation", "Parity Error", "CheckSum Error", "Character Error", "Command Error", "DataNo. Error"};  
 
 public:
     /// @brief
-    /// @return
-    int getAzimuthPulses();
+    std::string Tag;
+    bool MotionStart;
+    int OverLoadFlag;
+    bool overLoadOccuranceFlag;
 
+    PulseCount();
     /// @brief
-    /// @param azimuthPul
-    void setAzimuthPulses(int azimuthPul);
-
-    /// @brief
-    /// @return
-    int getAzimuthRevCount();
-
-    /// @brief
-    /// @param azimuthRev
-    void setAzimuthRevCount(int azimuthRev);
+    /// @param Name
+    /// @param parsedirection
+    // PulseCount(std::string Name,bool parsedirection);
+    PulseCount(std::string ObjectTag);
 
     /// @brief
     /// @return
-    int getElevationPulses();
+    double getCurrentAngle();
 
     /// @brief
-    /// @param elevationPul
-    void setElevationPulses(int elevationPul);
+    /// @param Pul
+    void setCurrentAngle(double Angle, bool directionFlag);
 
     /// @brief
     /// @return
-    int getElevationRevCount();
+    double getRevCount();
 
     /// @brief
-    /// @param elevationRev
-    void setElevationRevCount(int elevationRev);
+    /// @param Rev
+    void setRevCount(double Revolution);
 
     /// @brief
     /// @param receivedPacket
     /// @param comment
     void ReadDisplay(std::string receivedPacket, std::string comment);
 
-    /// @brief 
-    /// @param receivedPacket 
-    /// @return True if authentic Acknowledge, False is Bad Acknowledge  
-    bool ReceivedDataProcessing(std::string receivedPacket);
+    /// @brief
+    /// @param receivedPacket
+    /// @return True if authentic Acknowledge, False is Bad Acknowledge
+    bool ReceivedDataProcessing(std::string receivedPacket, bool Process);
+
+    /// @brief
+    /// @param n
+    /// @return Ones Complement of Integer.
+    unsigned int onesComplement(unsigned int n);
+
+    double PulsestoDegree(unsigned int Pulses);
+
+    void LiveAngleCalculation(double NewAngle, bool directionFlag);  
 };
+
+#endif //CURRENTPOSITION_H
